@@ -458,6 +458,8 @@ class HFArgs:  # ADDED
     # --- NEW ---
     run_name: Optional[str] = None        # ADDED
     report_to: Optional[str] = None       # ADDED
+    level2_col: Optional[str] = None
+    l2_weight: float = 0.5
 
 # ADDED (UPDATED): accept your .sh flags; auto-map aliases; no .sh changes needed
 def _hf_parse_from_argv() -> Optional[HFArgs]:  # ADDED
@@ -474,6 +476,9 @@ def _hf_parse_from_argv() -> Optional[HFArgs]:  # ADDED
         return default
 
     args = HFArgs()
+
+    args.level2_col = _get('--level2_col', args.level2_col)
+    args.l2_weight  = float(_get('--l2_weight', str(args.l2_weight)))
 
     # dataset / files
     args.dataset = (_get('--dataset', None) or _get('--dataset_name', None) or args.dataset)
@@ -516,83 +521,68 @@ def _hf_parse_from_argv() -> Optional[HFArgs]:  # ADDED
     return args
 
 # ADDED (UPDATED): accept label_names + alias map, decode ints, alias to our keys
+# ADDED (UPDATED): now optionally handles level2 as well
 class HFLevel1Dataset(torch.utils.data.Dataset):  # ADDED
-    """Maps dataset with columns 'text' and 'label' onto level1 ids."""
+    """Maps dataset with columns 'text' (+ optional 'level2') onto indices."""
     def __init__(
         self,
         hf_split,
         tokenizer,
         level1_to_idx: Dict[str, int],
         max_len: int = 256,
-        label_names: Optional[List[str]] = None,     # ADDED
-        alias_map: Optional[Dict[str, str]] = None   # ADDED
+        label_names: Optional[List[str]] = None,
+        alias_map: Optional[Dict[str, str]] = None,
+        level2_col: Optional[str] = None,                 # ADDED
+        l2_to_idx_per_parent: Optional[Dict[str, Dict[str, int]]] = None  # ADDED
     ):
         self.data = hf_split
         self.tok = tokenizer
         self.l1_to_idx = level1_to_idx
         self.max_len = max_len
-        self.label_names = label_names or []         # ADDED
-        # sensible defaults to unify typical datasets                        # ADDED
+        self.label_names = label_names or []
 
-        # inside HFLevel1Dataset.__init__(...)
+        # canonical alias map (extend if needed)
         self.alias_map = {
-            # exact matches (lower/underscored)
             'intro': 'introduction',
             'introduction': 'introduction',
-            'background': 'introduction',          # map to our L1
-            'related work': 'related_work',
-            'related_work': 'related_work',
-            'materials_and_methods': 'methods',
-            'material_and_methods': 'methods',
-            'method': 'methods',
-            'methods': 'methods',
-            'methodology': 'methods',              # NEW
-            'experiments_and_results': 'results',  # NEW
-            'experiments': 'results',              # NEW
-            'results': 'results',
-            'results_and_discussion': 'discussion',
-            'discussion': 'discussion',
-            'discussion_and_conclusion': 'conclusion',
-            'conclusions': 'conclusion',
-            'conclusion': 'conclusion',
-            'acknowledgements': 'acknowledgments',
-            'acknowledgments': 'acknowledgments',
-            'references': 'references',
-            'reference': 'references',
-            'appendix': 'appendix',
-            'supplementary': 'appendix',
-            'abstract': 'abstract',
-            'objective': 'abstract',
-            'methods_summary': 'abstract',
-            'results_summary': 'abstract',
-            'conclusions_summary': 'abstract',
+            'background': 'introduction',
+            'related work': 'related_work', 'related_work': 'related_work',
+            'materials_and_methods': 'methods', 'material_and_methods': 'methods',
+            'methodology': 'methods', 'method': 'methods', 'methods': 'methods',
+            'experiments_and_results': 'results', 'experiments': 'results', 'results': 'results',
+            'results_and_discussion': 'discussion', 'discussion': 'discussion',
+            'discussion_and_conclusion': 'conclusion', 'conclusions': 'conclusion', 'conclusion': 'conclusion',
+            'acknowledgements': 'acknowledgments', 'acknowledgments': 'acknowledgments',
+            'references': 'references', 'reference': 'references',
+            'appendix': 'appendix', 'supplementary': 'appendix',
+            'abstract': 'abstract', 'objective': 'abstract',
+            'methods_summary': 'abstract', 'results_summary': 'abstract', 'conclusions_summary': 'abstract',
         }
         if alias_map:
             self.alias_map.update({k.lower(): v for k, v in alias_map.items()})
 
-        # NEW: fallback integer→canonical map for nhop/academic-section-classification
-        self.default_index_map = {
-            0: 'introduction',
-            1: 'introduction',  # background → introduction
-            2: 'methods',       # methodology → methods
-            3: 'results',       # experiments and results → results
-            4: 'conclusion',
-        }
+        # default fallback for known int labels (keeps working if ClassLabel.names missing)
+        self.default_index_map = {0: 'introduction', 1: 'introduction', 2: 'methods', 3: 'results', 4: 'conclusion'}
 
-        # Verify columns
+        # ADDED: optional L2 wiring
+        self.level2_col = level2_col
+        self.l2_to_idx = l2_to_idx_per_parent or {}
+
+        # basic schema check for L1 (we require text+label by your design)
         sample = hf_split[0]
         if 'text' not in sample or 'label' not in sample:
             raise ValueError("HuggingFace data must have 'text' and 'label' columns.")
+        # L2 is optional; no error if missing
 
     def __len__(self): return self.data.num_rows
 
     def _decode_label(self, raw):
-    # ints from ClassLabel -> name; if names missing, use default_index_map
+        # ints from ClassLabel -> name; if no names, use default_index_map
         if isinstance(raw, int):
             if 0 <= raw < len(self.label_names or []):
                 name = self.label_names[raw]
             else:
-                name = self.default_index_map.get(raw, str(raw))  # <— key fix
+                name = self.default_index_map.get(raw, str(raw))
         else:
             name = str(raw)
         key = name.strip().lower().replace(' ', '_').replace('-', '_')
@@ -602,15 +592,45 @@ class HFLevel1Dataset(torch.utils.data.Dataset):  # ADDED
     def __getitem__(self, idx):
         item = self.data[idx]
         text = str(item['text'])
-        canon = self._decode_label(item['label'])    # ADDED
-        l1 = self.l1_to_idx.get(canon, -1)
+        # L1
+        canon_l1 = self._decode_label(item['label'])
+        l1 = self.l1_to_idx.get(canon_l1, -1)
 
+        # tokenize
         enc = self.tok(text, truncation=True, padding='max_length', max_length=self.max_len, return_tensors='pt')
-        return {
+
+        out = {
             'input_ids': enc['input_ids'].squeeze(0),
             'attention_mask': enc['attention_mask'].squeeze(0),
             'level1': torch.tensor(l1, dtype=torch.long),
         }
+
+        # ADDED: L2 (optional)
+        if self.level2_col and self.level2_col in item:
+            raw_l2 = item[self.level2_col]
+            if raw_l2 is None:
+                l2_idx = -1
+            else:
+                canon_l2 = str(raw_l2).strip().lower().replace(' ', '_').replace('-', '_')
+                canon_l2 = self.alias_map.get(canon_l2, canon_l2)
+                l2_idx = -1
+                if canon_l1 in self.l2_to_idx:
+                    l2_idx = self.l2_to_idx[canon_l1].get(canon_l2, -1)
+            out['level2'] = torch.tensor(l2_idx, dtype=torch.long)
+
+        return out
+
+# ADDED: collate that tolerates optional 'level2'
+def collate_fn(batch):
+    import torch  # safe even if torch is already imported
+    input_ids = torch.stack([b['input_ids'] for b in batch])
+    attn      = torch.stack([b['attention_mask'] for b in batch])
+    l1        = torch.stack([b['level1'] for b in batch])
+    out = {'input_ids': input_ids, 'attention_mask': attn, 'level1': l1}
+    if 'level2' in batch[0]:
+        l2 = torch.stack([b.get('level2', torch.tensor(-1, dtype=torch.long)) for b in batch])
+        out['level2'] = l2
+    return out
 
 def _build_hf_dataloaders(args: HFArgs, clf: HierarchicalSectionClassifier):  # ADDED
     if load_dataset is None:
@@ -638,13 +658,15 @@ def _build_hf_dataloaders(args: HFArgs, clf: HierarchicalSectionClassifier):  # 
 
     tok = clf.tokenizer
 
-    train_set = HFLevel1Dataset(tr, tok, clf.level1_to_idx, args.max_len, label_names=ln_tr)  # ADDED
-    val_set   = HFLevel1Dataset(va, tok, clf.level1_to_idx, args.max_len, label_names=ln_va) if va is not None else None  # ADDED
-    test_set  = HFLevel1Dataset(te, tok, clf.level1_to_idx, args.max_len, label_names=ln_te) if te is not None else None  # ADDED
+    train_set = HFLevel1Dataset(tr, tok, clf.level1_to_idx, args.max_len, label_names=ln_tr, alias_map=None, level2_col=args.level2_col, l2_to_idx_per_parent=clf.level2_to_idx)
+    val_set   = HFLevel1Dataset(va, tok, clf.level1_to_idx, args.max_len, label_names=ln_va, alias_map=None, level2_col=args.level2_col,l2_to_idx_per_parent=clf.level2_to_idx) if va is not None else None  # ADDED
+    test_set  = HFLevel1Dataset(te, tok, clf.level1_to_idx, args.max_len, label_names=ln_te, alias_map=None, level2_col=args.level2_col,l2_to_idx_per_parent=clf.level2_to_idx) if te is not None else None  # ADDED
 
-    dl_tr = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
-    dl_va = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, pin_memory=True) if val_set else None
-    dl_te = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, pin_memory=True) if test_set else None
+    # CHANGED: add collate_fn=collate_fn
+    dl_tr = DataLoader(train_set, batch_size=args.batch_size, shuffle=True,  pin_memory=True,  collate_fn=collate_fn)   # CHANGED
+    dl_va = DataLoader(val_set,   batch_size=args.batch_size, shuffle=False, pin_memory=True,  collate_fn=collate_fn) if val_set else None  # CHANGED
+    dl_te = DataLoader(test_set,  batch_size=args.batch_size, shuffle=False, pin_memory=True,  collate_fn=collate_fn) if test_set else None  # CHANGED
+
     return dl_tr, dl_va, dl_te
 
 
@@ -662,6 +684,30 @@ def _compute_l1_metrics(logits: torch.Tensor, labels: torch.Tensor) -> Tuple[tor
     preds = torch.argmax(logits, dim=1)
     acc = (preds[mask] == labels[mask]).float().mean().item()
     return loss_t, acc
+
+# ADDED
+def _compute_l2_loss(
+    l2_logits_dict: Dict[str, torch.Tensor],
+    l1_labels: torch.Tensor,
+    l2_labels: torch.Tensor,
+    idx_to_level1: Dict[int, str]
+) -> Optional[torch.Tensor]:
+    device = l1_labels.device
+    N = l1_labels.size(0)
+    losses = []
+    for i in range(N):
+        p = int(l1_labels[i])
+        c = int(l2_labels[i])
+        if p < 0 or c < 0: 
+            continue
+        parent = idx_to_level1[p]
+        if parent not in l2_logits_dict:
+            continue
+        logits_i = l2_logits_dict[parent][i].unsqueeze(0)  # [1, C_parent]
+        losses.append(F.cross_entropy(logits_i, torch.tensor([c], device=device)))
+    if not losses:
+        return None
+    return torch.stack(losses).mean()
 
 def hf_train_eval(args: HFArgs):  # ADDED
     os.makedirs(args.output_dir, exist_ok=True)
@@ -719,16 +765,28 @@ def hf_train_eval(args: HFArgs):  # ADDED
         for step, batch in enumerate(dl_tr, 1):
             input_ids = batch['input_ids'].to(device, non_blocking=True)
             attn = batch['attention_mask'].to(device, non_blocking=True)
-            y = batch['level1'].to(device, non_blocking=True)
+            y1 = batch['level1'].to(device, non_blocking=True)
 
 
             with torch.amp.autocast('cuda', enabled=args.amp and torch.cuda.is_available()):
-                l1_logits, _ = model(input_ids, attn)
-                loss_t, acc = _compute_l1_metrics(l1_logits, y)  # returns (Tensor, float)
+                # CHANGED (compute both; still works if no L2 available)
+                l1_logits, l2_logits = model(input_ids, attn)
+                # CHANGED: L1 loss (Tensor) + acc (float)
+                l1_loss_t, l1_acc = _compute_l1_metrics(l1_logits, y1)
 
-            # CHANGED: always scale the real Tensor loss; remember we did it
-            scaler.scale(loss_t / args.gradient_accum).backward()
-            has_scaled = True  # ADDED
+                l2_loss_t = None
+                if 'level2' in batch and getattr(args, 'level2_col', None):
+                    y2 = batch['level2'].to(device, non_blocking=True)
+                    l2_loss_t = _compute_l2_loss(l2_logits, y1, y2, clf.idx_to_level1)  # returns Tensor or None
+
+                # CHANGED: total loss for backprop
+                total_loss = l1_loss_t if l2_loss_t is None else (l1_loss_t + args.l2_weight * l2_loss_t)
+
+
+
+            # CHANGED: scale + backward with total_loss
+            scaler.scale(total_loss / args.gradient_accum).backward()
+            has_scaled = True  # keep
 
             # inside training loop:
             # ... after scaler.scale(loss_t / args.gradient_accum).backward()
@@ -747,24 +805,38 @@ def hf_train_eval(args: HFArgs):  # ADDED
                 sched.step()
                 has_scaled = False              # ADDED: reset after stepping
 
-            # CHANGED: keep running stats in floats
-            running_loss += float(loss_t.item())
-            running_acc  += acc
+            # CHANGED: running stats (floats for logs)
+            running_loss += float(l1_loss_t.item())
+            running_acc  += l1_acc
             seen += 1
             global_step += 1  # ADDED
 
+            # ADDED: optional L2 running stats for logging (don’t affect training if None)
+            if 'l2_running' not in locals():  # init once
+                l2_running, l2_seen = 0.0, 0
+            if l2_loss_t is not None:
+                l2_running += float(l2_loss_t.item())
+                l2_seen += 1
+                
+            # CHANGED: periodic console + W&B logs
             if step % 20 == 0 or step == len(dl_tr):
-                curr_lr = optim.param_groups[0]['lr']  # ADDED
-                msg = f"[Epoch {ep} | {step}/{len(dl_tr)}] L1_loss={running_loss/seen:.4f} L1_acc={running_acc/seen:.4f}"  # ADDED
-                print(msg)  # keep console print
+                curr_lr = optim.param_groups[0]['lr']
+                msg = f"[Epoch {ep} | {step}/{len(dl_tr)}] L1_loss={running_loss/seen:.4f} L1_acc={running_acc/seen:.4f}"
+                if l2_seen > 0:  # ADDED
+                    msg += f" L2_loss={l2_running/l2_seen:.4f}"
+                print(msg)
+
                 if use_wandb:  # ADDED
-                    wandb.log({
-                        "train/loss": running_loss/seen,
-                        "train/acc": running_acc/seen,
-                        "train/lr": curr_lr,
-                        "epoch": ep,
-                        "step": global_step
-                    })
+                    log_dict = {
+                        "train/l1_loss": running_loss/seen,
+                        "train/l1_acc":  running_acc/seen,
+                        "train/lr":      curr_lr,
+                        "epoch":         ep,
+                        "step":          global_step
+                    }
+                    if l2_seen > 0:  # ADDED
+                        log_dict["train/l2_loss"] = l2_running/l2_seen
+                    wandb.log(log_dict)
 
         # ---------------- Validation ----------------
         val_score = -1.0
@@ -776,19 +848,40 @@ def hf_train_eval(args: HFArgs):  # ADDED
                     input_ids = batch['input_ids'].to(device, non_blocking=True)
                     attn = batch['attention_mask'].to(device, non_blocking=True)
                     y = batch['level1'].to(device, non_blocking=True)
-                    l1_logits, _ = model(input_ids, attn)
-                    loss_t, acc = _compute_l1_metrics(l1_logits, y)
-                    v_l += float(loss_t.item()); v_a += acc; v_seen += 1
+                    # CHANGED: get both levels
+                    l1_logits, l2_logits = model(input_ids, attn)
+                    l1_loss_t, l1_acc = _compute_l1_metrics(l1_logits, y)
+
+                    # ADDED: optional L2 validation loss
+                    l2_loss_t = None
+                    if 'level2' in batch and getattr(args, 'level2_col', None):
+                        # here y is your level1; fetch level2 from batch if builder provided it
+                        y2 = batch['level2'].to(device, non_blocking=True)
+                        l2_loss_t = _compute_l2_loss(l2_logits, y, y2, clf.idx_to_level1)
+
+                    v_l += float(l1_loss_t.item())
+                    v_a += l1_acc
+                    v_seen += 1
+                    if 'v_l2' not in locals():  # ADDED init once per epoch
+                        v_l2, v_l2_seen = 0.0, 0
+                    if l2_loss_t is not None:   # ADDED
+                        v_l2 += float(l2_loss_t.item())
+                        v_l2_seen += 1
+
             v_l /= max(1, v_seen); v_a /= max(1, v_seen)
             val_score = v_a
-            print(f"[Validation] L1_loss={v_l:.4f} L1_acc={v_a:.4f}")
+
+            # CHANGED: after averaging v_l, v_a
+            val_msg = f"[Validation] L1_loss={v_l:.4f} L1_acc={v_a:.4f}"
+            if 'v_l2_seen' in locals() and v_l2_seen > 0:  # ADDED
+                val_msg += f" L2_loss={v_l2/v_l2_seen:.4f}"
+            print(val_msg)
+
             if use_wandb:  # ADDED
-                wandb.log({
-                    "val/loss": v_l,
-                    "val/acc": v_a,
-                    "epoch": ep,
-                    "step": global_step
-                })
+                log_dict = {"val/l1_loss": v_l, "val/l1_acc": v_a, "epoch": ep, "step": global_step}
+                if 'v_l2_seen' in locals() and v_l2_seen > 0:
+                    log_dict["val/l2_loss"] = v_l2 / v_l2_seen
+                wandb.log(log_dict)
 
         # ---------------- Checkpoints ----------------
         import os as _os

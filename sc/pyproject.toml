@@ -5,9 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12.3"
 dependencies = [
+    "accelerate>=0.33",
+    "datasets>=2.20",
+    "evaluate>=0.4",
+    "huggingface-hub>=0.23",
     "scikit-learn>=1.4,<2",
-    "torch>=2.4,<2.5",
+    "tensorflow>=2.20.0",
+    "tensorflow-datasets>=4.9.9",
     "transformers>=4.41,<5",
+    "wandb>=0.21.3",
 ]
 
 [build-system]
