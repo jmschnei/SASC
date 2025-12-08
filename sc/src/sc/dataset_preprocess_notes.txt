@@ -1,0 +1,394 @@
+https://huggingface.co/datasets/SIRIS-Lab/scilake-fulltext-corpus/viewer/default/cancer?row=0&views%5B%5D=cancer
+
+'abstract': 0,
+'introduction': 1,
+'background': 2,
+'methods': 3,
+'results': 4,
+'discussion': 5,
+'conclusion': 6,
+'references': 7,
+'acknowledgments': 8,
+'supplementary': 9
+
+6K papers
+Maybe 2K is useful
+
+share google sheets:
+https://docs.google.com/spreadsheets/d/1uNnQyKEIy7kPZQ39s09fZvWNiaKAsfAcnJ1RFBuAcIQ/edit?gid=0#gid=0
+
+
+root@serv-9223:/ws/sc/src/sc# python prepare_scilake.py 
+/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py:111: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Checking existing CSV files in ./raw_csv ...
+⚠️  ./raw_csv/scilake_cancer.csv already exists, skip downloading split 'cancer'.
+⚠️  ./raw_csv/scilake_neuroscience.csv already exists, skip downloading split 'neuroscience'.
+⚠️  ./raw_csv/scilake_energy.csv already exists, skip downloading split 'energy'.
+⚠️  ./raw_csv/scilake_transport.csv already exists, skip downloading split 'transport'.
+⚠️  ./raw_csv/scilake_general.csv already exists, skip downloading split 'general'.
+
+📂 Loading ./raw_csv/scilake_cancer.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 980/1000
+   Docs after English filter          : 980
+   Docs with fulltext_sections    : 980
+   Total fulltext_sections        : 14152
+   Docs with fulltext_additional  : 932
+   Total fulltext_additional      : 6118
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=6118, after=3914
+🧱 Extracting sections with HSSC feature-based mapping...
+   Total sections (fulltext_sections + additional): 12278
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   With hssc_level1 (non-empty level1 label) : 8644
+   With hssc_level2 (non-empty level2 label) : 8594
+   Docs with at least one non-empty level2: 945/959 (dropped 14 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            3276
+results            3197
+introduction       1044
+discussion          626
+conclusion          429
+acknowledgments      38
+appendix             18
+references           10
+abstract              4
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              3276
+tables_figures            2460
+background                1044
+descriptive_statistics     737
+interpretation             626
+summary                    429
+supplementary_data          18
+objective                    4
+Name: count, dtype: int64
+   Examples of sections WITHOUT level1 mapping:
+     [name] 'RESEARCH ARTICLE' | [preview] 'Interleukin-10-1082A>G (rs1800896) Single Nucleotide Polymorphism is Not a Risk Factor of Chronic Lymphocytic Leukemia i'
+     [name] 'Determination of Immunophenotyping and (CD38 & ZAP-70 expressions)' | [preview] 'The diagnosis of CLL was confirmed in each patient by flow cytometry (EPICS XL Beckman Coulter Flow Cytometry, Miami, FL'
+     [name] 'Jag2 is the dominant Notch signaling ligand involved in regulating sebocyte diff' | [preview] 'To investigate the role of Notch signaling in the homeostatic skin, we treated 8-wk-old mice with a single dose of the v'
+     [name] 'Hair follicle' | [preview] 'We also examined the percentage of SGs consisting of bursting sebocytes releasing sebum as a proxy of a functional sebac'
+     [name] '' | [preview] 'term treatment [6] [7] [8]. Deciphering the mechanisms of anemia is needed to generate treatments. SF3B1 mutation causes'
+     [name] 'Patient population' | [preview] 'PB samples were collected from a total of 86 patients with untreated CLL, after their informed consent, in accordance wi'
+     [name] 'ScFv-Fc production' | [preview] 'VH and VL genes were amplified with specific primers from CLL derived cDNA as already described [45]. V genes were assem'
+     [name] 'Both CD20 homologous and truncated nucleotide sequences are identified in B cell' | [preview] 'After RT-PCR of the full-length CD20 (fl-CD20) coding sequence, agarose gel electrophoresis allowed us to detect the exp'
+     [name] 'All newly identified sequences code for in-frame CD20 transcript variants result' | [preview] 'Bioedit© alignments revealed that all of the new sequences matched perfectly at the 5′ and 3′ regions with the conservat'
+     [name] 'CD20 splice variant profile expression can discriminate B cell malignancies' | [preview] 'Using the different CD20 variant profiles in the different B cell lines, Raji, Mec, Rec, and SKW6. 1 (Fig. 3c ), derived'
+     [name] 'Ex3 Ex8' | [preview] 'C-ter N-ter Table S2. Considering the percentage in CLL2007-SA, the median of total CD20 splicing (1. 26 ± 1. 23 %) was '
+     [name] 'Bioinformatics analysis' | [preview] 'We downloaded the transcriptomic data and the clinicopathological data of the TCGA-LIHC project from The Cancer Genome A'
+     [name] 'Clinical Liver Samples' | [preview] 'Samples of HCC tissue and the corresponding adjacent normal HCC tissues were collected from HCC patients who had undergo'
+     [name] 'Isolation And Puri cation Of Cafs And Normal Fibroblasts (Nfs)' | [preview] 'The primary CAFs and NFs were isolated from the clinical HCC tissues and liver tissues adjacent to hepatic hemangioma re'
+     [name] 'Cell Culture' | [preview] 'MHCC-97H was purchased from the Cell Bank of the Chinese Academy of Sciences (Shanghai, China) and cultured in DMEM comp'
+     [name] 'ELISA' | [preview] 'The culture medium supernatants from CAFs, NFs, and HCC cell lines (MHCC-97H and SNU-398) were collected and centrifuged'
+     [name] 'Sphere Formation Assay' | [preview] 'The cells were seeded in 24-well low attachment plates (Corning, NY, USA) with tumor sphere medium, composed of DMEM/F12'
+     [name] 'Cck8 Toxic Assay' | [preview] 'The Cell Counting Kit (CCK-8) (40203ES92, Yeasen, Shanghai, China) was used to measure the sensitivity of the cells to S'
+     [name] 'Transwell Migration And Invasion Assays' | [preview] 'For the migration assay, serum-free cell suspension was added into the upper transwell chambers (Millipore, Billerica, M'
+     [name] 'Virus Infection' | [preview] 'Viral particles expressed STC1 shRNA, STC1, or Notch1 shRNA were obtained from DesignGene Biotechnology(shanghai, China)'
+💾 Saved level2 dataset: ./preprocessed/scilake_cancer_level2_hssc.csv (12244 rows)
+
+📂 Loading ./raw_csv/scilake_neuroscience.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 985/1000
+   Docs after English filter          : 985
+   Docs with fulltext_sections    : 985
+   Total fulltext_sections        : 15155
+   Docs with fulltext_additional  : 947
+   Total fulltext_additional      : 5957
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=5957, after=3784
+🧱 Extracting sections with HSSC feature-based mapping...
+   Total sections (fulltext_sections + additional): 13188
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   With hssc_level1 (non-empty level1 label) : 9726
+   With hssc_level2 (non-empty level2 label) : 9649
+   Docs with at least one non-empty level2: 972/976 (dropped 4 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            4186
+results            2892
+introduction       1313
+discussion          632
+conclusion          596
+acknowledgments      57
+appendix             20
+references           20
+abstract             10
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              4186
+tables_figures            1874
+background                1313
+descriptive_statistics    1018
+interpretation             632
+summary                    596
+supplementary_data          20
+objective                   10
+Name: count, dtype: int64
+   Examples of sections WITHOUT level1 mapping:
+     [name] '' | [preview] 'Author contributions Dr. Gallo had full access to all of the data in Conflict of interest We declare that we have no con'
+     [name] 'in FS GABAergic neurons, heterozygous expression of the' | [preview] 'The online version of this article includes the following source data for figure 1: Source data 1. File containing data '
+     [name] 'The online version of this article includes the following source data for figure' | [preview] 'Source data 1. File containing data used to generate the graphs in Figure 8.'
+     [name] '' | [preview] 'doi:10. 1186/1471-2202-14-S1-P252 Cite this article as: Faugeras and MacLaurin: A large deviation principle for networks'
+     [name] 'Statistics. Resting motor threshold (RMT) and motor evoked potential (MEP) ampli' | [preview] 'A repeated measure analysis of variance (rmANOVA) with the within-subject effects of DRUG (4 levels: perampanel, dextrom'
+     [name] '' | [preview] 'recovery period. Mzc-treated animals also have no significant increase in brain water content (edema), a major cause of '
+     [name] 'Minozac production and treatment protocol' | [preview] 'Mzc was synthesized by the production scheme previously described [29], dissolved in sterile saline, and administered to'
+     [name] 'Collection of brain tissue' | [preview] 'At selected survival times, mice were anesthetized under isoflurane, sacrificed and perfused via the left ventricle with'
+     [name] 'Brain extract preparation and determination of protein concentration' | [preview] 'For recovery up to 12 hours, hippocampal and cortex extracts were prepared from both hemispheres by sonication in protea'
+     [name] 'Image acquisition and quantification of immunoreactive cells' | [preview] 'For each animal, 12 non-consecutive sections were immunostained, representing the extent of the hippocampus (approximate'
+     [name] 'Hippocampal-linked task behavioral testing' | [preview] 'The Y-maze test of spontaneous alternation was used to evaluate hippocampus-dependent spatial learning [30, 36]. Testing'
+     [name] '. . Histochemistry' | [preview] 'Animals were deeply anesthetized with overdose isoflurane and perfused with 0. 9% saline, followed by 4% paraformaldehyd'
+     [name] '. . Fear conditioning' | [preview] 'Fear conditioning was carried out using a conditioning chamber (17 × 17 × 25 cm) (Ugo Basile Biological Research Apparat'
+     [name] '. . Analysis trials from calcium signal and responsive neuron detection' | [preview] 'To analyze the response of neurons, we first aligned the response ( F/F0) to the time of stimulus onset. Then, we calcul'
+     [name] '. . Analysis of neuronal network in the ensembles' | [preview] 'Neurons in the ensembles and their correlation-based thresholded connectivity were defined as a network of nodes and edg'
+     [name] '. . Conditioning induced di erent changes in three neuronal types in the ensembl' | [preview] 'We defined neurons that existed in both before-conditioning and after-conditioning ensembles as stable neurons. Stable n'
+     [name] 'Relative timing of MNN and DNN activation' | [preview] 'The first change of turning direction occurs because for sufficiently large delay between DNN and MNN the radial muscles'
+     [name] 'Synapse model' | [preview] "Here, E syn is the current's reversal potential, a the fraction of fast decay and Q t ð Þ the Heaviside theta function. "
+     [name] 'Diffuse nerve net' | [preview] 'We model the DNN similarly to the MNN, since little is known about it. In particular, we assume the same channel dynamic'
+     [name] 'Muscles' | [preview] 'To model the activation of circular swim muscles by MNN neurons (see Figure 17 ), we follow a simple model for muscle fo'
+💾 Saved level2 dataset: ./preprocessed/scilake_neuroscience_level2_hssc.csv (13179 rows)
+
+📂 Loading ./raw_csv/scilake_energy.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 985/1000
+   Docs after English filter          : 985
+   Docs with fulltext_sections    : 985
+   Total fulltext_sections        : 15155
+   Docs with fulltext_additional  : 947
+   Total fulltext_additional      : 5957
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=5957, after=3784
+🧱 Extracting sections with HSSC feature-based mapping...
+   Total sections (fulltext_sections + additional): 13188
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   With hssc_level1 (non-empty level1 label) : 9726
+   With hssc_level2 (non-empty level2 label) : 9649
+   Docs with at least one non-empty level2: 972/976 (dropped 4 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            4186
+results            2892
+introduction       1313
+discussion          632
+conclusion          596
+acknowledgments      57
+appendix             20
+references           20
+abstract             10
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              4186
+tables_figures            1874
+background                1313
+descriptive_statistics    1018
+interpretation             632
+summary                    596
+supplementary_data          20
+objective                   10
+Name: count, dtype: int64
+   Examples of sections WITHOUT level1 mapping:
+     [name] '' | [preview] 'Author contributions Dr. Gallo had full access to all of the data in Conflict of interest We declare that we have no con'
+     [name] 'in FS GABAergic neurons, heterozygous expression of the' | [preview] 'The online version of this article includes the following source data for figure 1: Source data 1. File containing data '
+     [name] 'The online version of this article includes the following source data for figure' | [preview] 'Source data 1. File containing data used to generate the graphs in Figure 8.'
+     [name] '' | [preview] 'doi:10. 1186/1471-2202-14-S1-P252 Cite this article as: Faugeras and MacLaurin: A large deviation principle for networks'
+     [name] 'Statistics. Resting motor threshold (RMT) and motor evoked potential (MEP) ampli' | [preview] 'A repeated measure analysis of variance (rmANOVA) with the within-subject effects of DRUG (4 levels: perampanel, dextrom'
+     [name] '' | [preview] 'recovery period. Mzc-treated animals also have no significant increase in brain water content (edema), a major cause of '
+     [name] 'Minozac production and treatment protocol' | [preview] 'Mzc was synthesized by the production scheme previously described [29], dissolved in sterile saline, and administered to'
+     [name] 'Collection of brain tissue' | [preview] 'At selected survival times, mice were anesthetized under isoflurane, sacrificed and perfused via the left ventricle with'
+     [name] 'Brain extract preparation and determination of protein concentration' | [preview] 'For recovery up to 12 hours, hippocampal and cortex extracts were prepared from both hemispheres by sonication in protea'
+     [name] 'Image acquisition and quantification of immunoreactive cells' | [preview] 'For each animal, 12 non-consecutive sections were immunostained, representing the extent of the hippocampus (approximate'
+     [name] 'Hippocampal-linked task behavioral testing' | [preview] 'The Y-maze test of spontaneous alternation was used to evaluate hippocampus-dependent spatial learning [30, 36]. Testing'
+     [name] '. . Histochemistry' | [preview] 'Animals were deeply anesthetized with overdose isoflurane and perfused with 0. 9% saline, followed by 4% paraformaldehyd'
+     [name] '. . Fear conditioning' | [preview] 'Fear conditioning was carried out using a conditioning chamber (17 × 17 × 25 cm) (Ugo Basile Biological Research Apparat'
+     [name] '. . Analysis trials from calcium signal and responsive neuron detection' | [preview] 'To analyze the response of neurons, we first aligned the response ( F/F0) to the time of stimulus onset. Then, we calcul'
+     [name] '. . Analysis of neuronal network in the ensembles' | [preview] 'Neurons in the ensembles and their correlation-based thresholded connectivity were defined as a network of nodes and edg'
+     [name] '. . Conditioning induced di erent changes in three neuronal types in the ensembl' | [preview] 'We defined neurons that existed in both before-conditioning and after-conditioning ensembles as stable neurons. Stable n'
+     [name] 'Relative timing of MNN and DNN activation' | [preview] 'The first change of turning direction occurs because for sufficiently large delay between DNN and MNN the radial muscles'
+     [name] 'Synapse model' | [preview] "Here, E syn is the current's reversal potential, a the fraction of fast decay and Q t ð Þ the Heaviside theta function. "
+     [name] 'Diffuse nerve net' | [preview] 'We model the DNN similarly to the MNN, since little is known about it. In particular, we assume the same channel dynamic'
+     [name] 'Muscles' | [preview] 'To model the activation of circular swim muscles by MNN neurons (see Figure 17 ), we follow a simple model for muscle fo'
+💾 Saved level2 dataset: ./preprocessed/scilake_energy_level2_hssc.csv (13179 rows)
+
+📂 Loading ./raw_csv/scilake_transport.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 919/1000
+   Docs after English filter          : 919
+   Docs with fulltext_sections    : 919
+   Total fulltext_sections        : 17606
+   Docs with fulltext_additional  : 793
+   Total fulltext_additional      : 4107
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=4107, after=2717
+🧱 Extracting sections with HSSC feature-based mapping...
+   Total sections (fulltext_sections + additional): 15555
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   With hssc_level1 (non-empty level1 label) : 9768
+   With hssc_level2 (non-empty level2 label) : 9640
+   Docs with at least one non-empty level2: 894/909 (dropped 15 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            3898
+results            2924
+introduction       1363
+conclusion          949
+discussion          485
+acknowledgments      93
+references           35
+appendix             18
+abstract              3
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              3898
+tables_figures            2139
+background                1363
+summary                    949
+descriptive_statistics     785
+interpretation             485
+supplementary_data          18
+objective                    3
+Name: count, dtype: int64
+   Examples of sections WITHOUT level1 mapping:
+     [name] '' | [preview] 'Zooplankton organisms are a central part of pelagic ecosystems. They feed on all kinds of particulate matter and their e'
+     [name] 'Mesozooplankton Ammonium Excretion and Respiration' | [preview] 'Ammonium excretion and respiration rates followed similar patterns as the biomass distribution patterns. Median µmol O 2'
+     [name] 'POC Content and Flux From in situ Particle Imaging' | [preview] 'POC content and flux calculated from UVP5 data (Figure 6, Table 4 ) varies markedly between the three investigation area'
+     [name] 'Nitrogen Fluxes Out of the Top 200 m' | [preview] 'The median active export of dissolved ammonium via DVM from the 0 to 200 m depth layer can be estimated at S4 ), values '
+     [name] 'Work' | [preview] 'Cities play a prominent role in economic development. More than 80 % of the gross world product (GWP) comes from cities.'
+     [name] 'Water challenges in the city' | [preview] 'Drinking water consumption in cities makes up a small fraction of the total water footprint. For example, people in the '
+     [name] 'Sanitation' | [preview] 'Currently, 3. 4 million people -mostly children -die from water-borne diseases every year.'
+     [name] 'Human health' | [preview] 'Water-related hazards account for 90% of all natural hazards.'
+     [name] 'Hazards' | [preview] 'Climate change may worsen water services and quality of life in cities.'
+     [name] 'Climate change' | [preview] 'Urban areas of the world will absorb all of the population growth. Overall, the world population is expected to be 67 pe'
+     [name] 'Urbanization Water use & water scarcity' | [preview] 'Water withdrawals have tripled over the last 50 years. In 2030, there will be a 40% supply shortage of water. water is n'
+     [name] 'Solid waste and water' | [preview] 'Cities generate massive amounts of solid waste. Poor waste management, ranging from non-existing collection systems to i'
+     [name] 'The cost of urban water infrastructure' | [preview] 'Cities need to protect their citizens against water-related disasters (e. g. droughts and floods), to guarantee water av'
+     [name] 'Time is running out' | [preview] 'In many countries, awareness of the urban challenges is low. Nevertheless, there are developments which cannot be ignore'
+     [name] 'What is water governance?' | [preview] 'To tackle the challenges of water in the city, it is necessary to take numerous aspects, interests and actors into accou'
+     [name] 'Develop a shared long-term vision' | [preview] 'Developing a long-term vision together is an important prerequisite to bring about change. This can be summarized as par'
+     [name] 'Monitor implementation' | [preview] 'It was once said by the American delegation during the negotiations on the European REACH regulation that legislation is'
+     [name] 'Δα' | [preview] 'Figure 2. The 12-direction chain code (a); and an example (b), adopted from [38]. After this step, the following GPS poi'
+     [name] 'Sidewalk Network Construction, and OSM Data Enrichment' | [preview] 'Initially, the database contains road network and building geometries and the sidewalk network is empty. It is expected '
+     [name] 'Data Clustering and Candidate Point Selection' | [preview] 'As discussed earlier in Section 3. 2, in this step, we identify the GPS points that contain the most important informati'
+💾 Saved level2 dataset: ./preprocessed/scilake_transport_level2_hssc.csv (15523 rows)
+
+📂 Loading ./raw_csv/scilake_general.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 1586/2000
+   Docs after English filter          : 1586
+   Docs with fulltext_sections    : 1586
+   Total fulltext_sections        : 24346
+   Docs with fulltext_additional  : 1396
+   Total fulltext_additional      : 7747
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=7747, after=5143
+🧱 Extracting sections with HSSC feature-based mapping...
+   Total sections (fulltext_sections + additional): 21553
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   With hssc_level1 (non-empty level1 label) : 14679
+   With hssc_level2 (non-empty level2 label) : 14469
+   Docs with at least one non-empty level2: 1562/1573 (dropped 11 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            6041
+results            3942
+introduction       2283
+conclusion         1128
+discussion          980
+acknowledgments     151
+appendix             72
+references           59
+abstract             23
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              6041
+tables_figures            2369
+background                2283
+descriptive_statistics    1573
+summary                   1128
+interpretation             980
+supplementary_data          72
+objective                   23
+Name: count, dtype: int64
+   Examples of sections WITHOUT level1 mapping:
+     [name] 'Reporting of trial quality' | [preview] 'In total, 11. 8% (32/271) of the abstracts mentioned details of allocation concealment, but this information was lacking'
+     [name] 'Archival sources' | [preview] 'archivio di Stato di firenze, arte dei rigattieri e linaioli, 7. archivio di Stato di firenze, arte dei rigattieri linai'
+     [name] 'Primary sources' | [preview] 'Sartini, ferdinando (1940-1948) Carboni, mauro; muzzarelli, maria Giuseppina (eds. ) (2012), in pegno. oggetti in transi'
+     [name] 'Circular economy for waste management' | [preview] 'There are many concepts of circular economy, dating back as far as 1966 (Adami and Schiavon 2021). In addition, in 1991,'
+     [name] 'Circular economy to tackle climate change' | [preview] 'The circular economy approach improves resource efficiency while decreasing inputs and emissions and can therefore be us'
+     [name] 'Impact of the circular economy on pollution, energy, waste, natural resources an' | [preview] 'As the circular economy principles are implemented globally, circular economy strategies will play a more significant ro'
+     [name] 'Table 2' | [preview] 'The specific impact of the circular economy strategy on air and water quality, energy consumption, natural resources, so'
+     [name] 'Circular economy for food systems' | [preview] 'As shown in Fig. 3, this section will examine the circular economy opportunities in the food system from three aspects: '
+     [name] 'Food production' | [preview] 'The circular economy model tries to change the unsustainability of the traditional linear production mode and applies re'
+     [name] 'Food consumption' | [preview] 'Reducing meat consumption is one of the critical opportunities for the circular economy in the food consumption system ('
+     [name] 'Cost-effective routes for the circular economy' | [preview] 'This section will look at three potential circular economy routes for the current period to establish circular economy p'
+     [name] 'Establishing circular economy in an industrial park' | [preview] 'As shown in Fig. 4, the construction of an eco-industrial park based on a circular economy, particularly a single circul'
+     [name] 'Municipal solid waste utilization system' | [preview] 'Compared to all municipal wastes that are not recyclable, they are incinerated or dumped directly after recycling. Class'
+     [name] '3' | [preview] 'Finally, we propose a circular economy path that can provide a theoretical foundation for the future sustainability of i'
+     [name] 'Design' | [preview] 'To develop the checklist eight main activities will be carried out (Figure 1 ).'
+     [name] 'Registration on the EQUATOR website' | [preview] 'The protocol of the study and the pre-tested questionnaires will be registered on the EQUATOR website after ethical clea'
+     [name] 'Literature review' | [preview] 'A search for articles concerning food intake studies will be conducted during the development of the checklist to assess'
+     [name] 'Generating a list of items for consideration during the face-to-face meeting' | [preview] 'Based on the answers obtained from the first Delphi round and the items considered important from the literature review,'
+     [name] 'Post-meeting activities' | [preview] 'After drafting and finalizing the checklist, strategies to implement the dissemination plan will be considered by the st'
+     [name] 'Developing the guidance statement' | [preview] 'In this step, the focus will be on drafting the checklist with several attempts to come out with the best version. Notes'
+💾 Saved level2 dataset: ./preprocessed/scilake_general_level2_hssc.csv (21528 rows)
