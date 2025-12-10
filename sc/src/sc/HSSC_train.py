@@ -572,6 +572,21 @@ def main():
     if args.level2_col not in df.columns:
         raise ValueError(f"level2_col '{args.level2_col}' not in CSV columns: {df.columns}")
 
+    # --- NEW: filter out rows without level2 label for hierarchical training ---
+    total_rows = len(df)
+    no_level2_mask = df[args.level2_col].isna()
+    num_no_level2 = int(no_level2_mask.sum())
+
+    # We keep only rows that have a non-missing level2 label
+    df = df[~no_level2_mask].reset_index(drop=True)
+    kept_rows = len(df)
+
+    print(
+        f"[HSSC_train] Filtered rows without level2: "
+        f"removed {num_no_level2}/{total_rows}, kept {kept_rows} samples with non-empty level2."
+    )
+    # ---------------------------------------------------------------------------
+
     # Build hierarchy & label mappings
     hierarchy_config, level1_to_idx, level2_to_idx = build_hierarchy(
         df, args.level1_col, args.level2_col
@@ -588,6 +603,12 @@ def main():
         stratify=df[args.level1_col].astype(str),
     )
 
+    print(
+        f"[HSSC_train] Dataset split: "
+        f"train={len(train_df)} samples, val={len(val_df)} samples "
+        f"(test_size={args.test_size})."
+    )
+    
     # Tokenizer
     tokenizer_name = args.tokenizer_name or args.model_name
     print(f"[HSSC_train] Loading tokenizer from {tokenizer_name}")

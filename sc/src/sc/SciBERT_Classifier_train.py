@@ -110,6 +110,7 @@ class HFDatasetWrapper(Dataset):
         label_column: str,
         max_length: int = 256,
         label_map: Optional[Dict[Any, int]] = None,
+        split_name: str = "dataset",
     ):
         self.ds = hf_split
         self.tokenizer = tokenizer
@@ -117,6 +118,7 @@ class HFDatasetWrapper(Dataset):
         self.label_column = label_column
         self.max_length = max_length
         self.label_map = label_map
+        self.split_name = split_name
 
         # Pre-filter invalid labels and keep indices only for valid samples
         self.valid_indices = []
@@ -132,9 +134,9 @@ class HFDatasetWrapper(Dataset):
             self.valid_indices.append(i)
 
         print(
-            f"[HFDatasetWrapper] Kept {len(self.valid_indices)}/{len(self.ds)} "
-            f"samples for text='{self.text_column}', label='{self.label_column}'"
-        )
+        f"[HFDatasetWrapper:{self.split_name}] Kept {len(self.valid_indices)}/{len(self.ds)} "
+        f"samples for text='{self.text_column}', label='{self.label_column}'"
+    )
 
     def __len__(self):
         return len(self.valid_indices)
@@ -498,6 +500,7 @@ def main():
         label_column=args.label_column,
         max_length=args.max_length,
         label_map=label_map,
+        split_name="TRAIN",
     )
     val_ds = HFDatasetWrapper(
         val_split,
@@ -506,6 +509,7 @@ def main():
         label_column=args.label_column,
         max_length=args.max_length,
         label_map=label_map,
+        split_name="VAL",
     )
 
     # Dataloaders

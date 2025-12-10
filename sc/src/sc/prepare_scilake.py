@@ -4,6 +4,8 @@ import ast
 import json
 from typing import List, Dict, Any, Optional
 
+from langdetect import detect, DetectorFactory
+
 import pandas as pd
 from datasets import load_dataset, get_dataset_split_names
 
@@ -54,8 +56,6 @@ LEVEL1_PRIORITY = [
 # ======================================================
 # English Filter using langdetect (Option A)
 # ======================================================
-
-from langdetect import detect, DetectorFactory
 DetectorFactory.seed = 0  # make langdetect deterministic
 
 
@@ -826,11 +826,8 @@ def preprocess_one_split(split_name: str,
       3. Inspect distribution of fulltext_sections / fulltext_additional.
       4. Clean 'fulltext_additional' on the English subset.
       5. Flatten to section-level dataset, map to HSSC level1/level2.
-      6. Apply paper-level filter for level2:
-           - Drop papers (dois) that have no level2 anywhere.
-           - Keep all rows for papers that have at least one level2.
-      7. Print statistics about unique level names for hssc_level1 / hssc_level2.
-      8. Save to:
+      6. Drop sections where both level1 and level2 are missing.
+      7. Save to:
            ./preprocessed/scilake_{split_name}_level2_hssc.csv
     """
     in_path = os.path.join(RAW_DIR, f"scilake_{split_name}.csv")
@@ -863,11 +860,31 @@ def preprocess_one_split(split_name: str,
     flat_df = flatten_sections(df_eng, split_name=split_name,
                                min_len=MIN_LEN, max_len=MAX_LEN)
 
+    # --- NEW: drop rows where both level1 and level2 are missing ---
+    total_before_filter = len(flat_df)
+    both_missing_mask = flat_df["hssc_level1"].isna() & flat_df["hssc_level2"].isna()
+    num_both_missing = int(both_missing_mask.sum())
+
+    if num_both_missing > 0:
+        flat_df = flat_df[~both_missing_mask].reset_index(drop=True)
+
+    total_after_filter = len(flat_df)
+    print(
+        "[prepare_scilake] Removed sections with BOTH hssc_level1 and hssc_level2 missing: "
+        f"{num_both_missing}/{total_before_filter} "
+        f"(kept {total_after_filter} sections)."
+    )
+    # ---------------------------------------------------------------
+
     total_sections = len(flat_df)
     kept_level1 = flat_df["hssc_level1"].notna().sum()
     kept_level2 = flat_df["hssc_level2"].notna().sum()
 
-    print(f"   Total sections (fulltext_sections + additional): {total_sections}")
+    print(f"   Total sections (after filters): {total_sections}")
+    print(f"   With hssc_level1 (non-empty level1 label) : {kept_level1}")
+    print(f"   With hssc_level2 (non-empty level2 label) : {kept_level2}")
+
+    # More detailed statistics & logging
     print(
         "   NOTE: Total sections is the number of rows AFTER applying "
         "flatten_sections() filters:\n"
@@ -877,72 +894,41 @@ def preprocess_one_split(split_name: str,
         "         Therefore Total sections is generally smaller than:\n"
         "           Total fulltext_sections + cleaned fulltext_additional."
     )
-    print(f"   With hssc_level1 (non-empty level1 label) : {kept_level1}")
-    print(f"   With hssc_level2 (non-empty level2 label) : {kept_level2}")
 
-    # ---------- Paper-level filter based on level2 ----------
-    # If a paper (same doi) has no non-empty hssc_level2 in any section,
-    # we drop ALL rows for that doi.
-    # If a paper has at least one section with non-empty hssc_level2,
-    # we keep ALL rows for that doi (even if some rows have hssc_level2 = NaN).
-    if not flat_df.empty:
-        has_l2 = flat_df.groupby("doi")["hssc_level2"].transform(
-            lambda s: s.notna().any()
-        )
+    # Document-level stats: how many papers have at least one non-empty level2
+    doc_group = flat_df.groupby("doi")["hssc_level2"]
+    docs_total = doc_group.size().shape[0]
+    docs_with_l2 = (doc_group.apply(lambda s: s.notna().any())).sum()
+    docs_without_l2 = docs_total - docs_with_l2
+    print(
+        f"   Docs with at least one non-empty level2: "
+        f"{docs_with_l2}/{docs_total} (dropped {docs_without_l2} docs with no level2 at all)"
+    )
 
-        n_docs_before = flat_df["doi"].nunique()
-        flat_df = flat_df[has_l2].copy()
-        n_docs_after = flat_df["doi"].nunique()
+    # Unique label sets
+    non_empty_l1 = flat_df["hssc_level1"].dropna().astype(str)
+    non_empty_l2 = flat_df["hssc_level2"].dropna().astype(str)
 
-        print(
-            f"   Docs with at least one non-empty level2: "
-            f"{n_docs_after}/{n_docs_before} "
-            f"(dropped {n_docs_before - n_docs_after} docs with no level2 at all)"
-        )
-    else:
-        print("   WARNING: flat_df is empty after flatten_sections().")
-    # --------------------------------------------------------
+    unique_l1 = sorted(non_empty_l1.unique().tolist())
+    unique_l2 = sorted(non_empty_l2.unique().tolist())
 
-    # ---------- Statistics about unique level names ----------
-    if not flat_df.empty:
-        l1_nonnull = flat_df["hssc_level1"].dropna()
-        l2_nonnull = flat_df["hssc_level2"].dropna()
+    print(f"   Unique hssc_level1 labels (non-empty): {len(unique_l1)}")
+    print(f"   Unique hssc_level2 labels (non-empty): {len(unique_l2)}")
 
-        num_l1 = l1_nonnull.nunique()
-        num_l2 = l2_nonnull.nunique()
-
-        print(f"   Unique hssc_level1 labels (non-empty): {num_l1}")
-        print(f"   Unique hssc_level2 labels (non-empty): {num_l2}")
-
+    if unique_l1:
         print("   hssc_level1 label names:")
-        print("     " + ", ".join(sorted(map(str, l1_nonnull.unique()))))
+        print("     " + ", ".join(unique_l1))
 
+    if unique_l2:
         print("   hssc_level2 label names (first 50, if many):")
-        unique_l2 = sorted(map(str, l2_nonnull.unique()))
-        if len(unique_l2) > 50:
-            print("     " + ", ".join(unique_l2[:50]) + ", ...")
-        else:
-            print("     " + ", ".join(unique_l2))
+        print("     " + ", ".join(unique_l2[:50]))
 
-        print("   hssc_level1 distribution (top 20):")
-        print(l1_nonnull.value_counts().head(20))
+    # Distributions
+    print("   hssc_level1 distribution (top 20):")
+    print(non_empty_l1.value_counts().head(20))
 
-        print("   hssc_level2 distribution (top 20):")
-        print(l2_nonnull.value_counts().head(20))
-    else:
-        print("   No rows left after paper-level filtering; skipping label stats.")
-    # --------------------------------------------------------
-
-    # Show some examples without level1 mapping (for debugging coverage)
-    no_level1 = flat_df[flat_df["hssc_level1"].isna()]
-    if not no_level1.empty:
-        print("   Examples of sections WITHOUT level1 mapping:")
-        for _, r in no_level1.head(20).iterrows():
-            name = (r["section_name"] or "")[:80]
-            preview = (r["section_content"] or "")[:120].replace("\n", " ")
-            print(f"     [name] {repr(name)} | [preview] {repr(preview)}")
-    else:
-        print("   All sections received a level1 label (no NaNs).")
+    print("   hssc_level2 distribution (top 20):")
+    print(non_empty_l2.value_counts().head(20))
 
     flat_df.to_csv(out_path, index=False)
     print(f"💾 Saved level2 dataset: {out_path} ({len(flat_df)} rows)")
