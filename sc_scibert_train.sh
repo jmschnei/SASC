@@ -78,7 +78,7 @@ TRAINING_ARGS="
     --do_eval \
     --seed $SEED \
 
-    --epochs 5 \
+    --epochs 1 \
     --learning_rate 2e-5 \
     --batch_size 32 \
 
@@ -106,7 +106,7 @@ srun -K \
     --job-name=$JOBNAME \
     $CONTAINER_ARGS \
     --export=$EXPORT_ARGS \
-    torchrun --standalone --nproc-per-node $N_PROC /ws/sc/src/sc/SciBERT_Classifier_train.py \
+    torchrun --standalone --nproc-per-node $N_PROC /ws/sc/src/sc/SciBERT_Classifier_eval.py \
         $MODEL_ARGS \
         $DATA_ARGS \
         $TRAINING_ARGS \
