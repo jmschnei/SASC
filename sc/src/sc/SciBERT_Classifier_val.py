@@ -2,25 +2,20 @@
 # -*- coding: utf-8 -*-
 
 """
-NO-FINETUNE evaluation script for a 1-level SciBERT classifier, compatible with sc_scibert_train.sh 
+Training script for a 1-level SciBERT classifier, compatible with sc_scibert_train.sh
 and current --train_csv usage.
 
-Supported data sources:
+It supports two data sources:
   1) Local CSV via:
        --train_csv /path/to.csv
      (default text column: section_content; label column: hssc_level1)
   2) HuggingFace Hub dataset via:
        --dataset_name nhop/academic-section-classification
 
-This script accepts HF-style training arguments (do_train, do_eval, fp16,
-eval_steps, save_steps, etc.), but in NO-FINETUNE mode it performs:
+It accepts HF-style training arguments (do_train, do_eval, fp16, eval_steps,
+save_steps, etc.), but internally uses a custom training loop (no Trainer).
+Extra arguments are parsed and ignored safely.
 
-  - Only data loading and validation split creation,
-  - Initialization of the pretrained SciBERT classifier,
-  - Evaluation on the validation set (default 20%),
-  - No training loop and no parameter updates.
-
-Extra arguments are safely parsed and ignored.
 """
 
 import os
@@ -539,29 +534,141 @@ def main():
     )
     model = SciBERTSectionClassifier(n_classes=num_labels, model_name=args.model_name).to(device)
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # NO-FINETUNE MODE:
-    # Directly evaluate on the validation set (default: 20%)
-    # without performing any training or optimization.
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # =====================
+    # Freeze SciBERT encoder (NO fine-tuning)
+    # =====================
+    for name, param in model.bert.named_parameters():
+        param.requires_grad = False
 
-    val_loss, val_acc = evaluate(model, val_loader, device)
+    print("[SciBERT_Classifier_train] SciBERT encoder frozen. Training classifier head only.")
 
-    print("\n========== NO-FINETUNE EVAL (LEVEL-1) ==========")
-    print(f"[Val] loss={val_loss:.4f}, acc={val_acc:.4f}")
-    print("[SciBERT_Classifier_train] Done (no training).")
+    # sanity check if it is linear probe
+    num_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    num_total = sum(p.numel() for p in model.parameters())
+
+    print(
+        f"[Debug] Trainable params: {num_trainable:,} / {num_total:,} "
+        f"({100.0 * num_trainable / num_total:.4f}%)"
+    )
+
+    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate) # only optimize the classifier head 's parameters (explicitly optimize only parameters with requires_grad=True.)
+    criterion = nn.CrossEntropyLoss()
+
+    # FP16
+    use_fp16 = args.fp16 and torch.cuda.is_available()
+    scaler = torch.cuda.amp.GradScaler(enabled=use_fp16)
+
+    # wandb logging
+    use_wandb = args.report_to is not None and "wandb" in args.report_to
+    if use_wandb and wandb is None:
+        print("[SciBERT_Classifier_train] wandb is not installed; disabling wandb logging.")
+        use_wandb = False
 
     if use_wandb:
-        wandb.log({
-            "eval/loss": val_loss,
-            "eval/accuracy": val_acc,
-            "eval/num_samples": len(val_loader.dataset),
-            "eval/num_labels": model.classifier.out_features,
-            "mode": "no_finetune"
-        })
+        project = os.environ.get("WANDB_PROJECT", "sc-SciBERT")
+        tags = os.environ.get("WANDB_TAGS", "").split(",") if os.environ.get("WANDB_TAGS") else None
+        print(
+            "[SciBERT_Classifier_train] Initializing wandb: "
+            f"project={project}, run_name={args.run_name}, tags={tags}"
+        )
+        wandb.init(
+            project=project,
+            name=args.run_name,
+            tags=tags,
+            config={
+                "model_name": args.model_name,
+                "tokenizer_name": tokenizer_name,
+                "dataset_name": args.dataset_name,
+                "max_length": args.max_length,
+                "batch_size": args.batch_size,
+                "epochs": args.epochs,
+                "learning_rate": args.learning_rate,
+                "text_column": args.text_column,
+                "label_column": args.label_column,
+            },
+        )
+
+    best_val_loss = float("inf")
+
+    for epoch in range(1, args.epochs + 1):
+        print(f"\n========== Epoch {epoch}/{args.epochs} ==========")
+        model.train()
+
+        total_loss = 0.0
+        total_correct = 0
+        total_count = 0
+
+        for batch in train_loader:
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["label"].to(device)
+
+            optimizer.zero_grad()
+
+            with torch.cuda.amp.autocast(enabled=use_fp16):
+                outputs = model(input_ids, attention_mask)
+                loss = criterion(outputs, labels)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            total_loss += loss.item() * input_ids.size(0)
+            preds = outputs.argmax(dim=1)
+            total_correct += (preds == labels).sum().item()
+            total_count += input_ids.size(0)
+
+        train_loss = total_loss / max(1, total_count)
+        train_acc = total_correct / max(1, total_count)
+
+        val_loss, val_acc = evaluate(model, val_loader, device)
+
+        print(f"[Train] loss={train_loss:.4f}, acc={train_acc:.4f}")
+        print(f"[Val]   loss={val_loss:.4f}, acc={val_acc:.4f}")
+
+        if use_wandb:
+            wandb.log(
+                {
+                    "train/loss": train_loss,
+                    "train/acc": train_acc,
+                    "val/loss": val_loss,
+                    "val/acc": val_acc,
+                    "epoch": epoch,
+                }
+            )
+
+        # Save best model according to validation loss
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_path = os.path.join(args.output_dir, "best_model.pt")
+            print(f"[SciBERT_Classifier_train] Saving best model to {best_path}")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "num_labels": num_labels,
+                    "label_map": label_map,
+                    "args": vars(args),
+                },
+                best_path,
+            )
+
+    # Save last epoch model
+    last_path = os.path.join(args.output_dir, "last_model.pt")
+    print(f"[SciBERT_Classifier_train] Saving last model to {last_path}")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "num_labels": num_labels,
+            "label_map": label_map,
+            "args": vars(args),
+        },
+        last_path,
+    )
+
+    if use_wandb:
         wandb.finish()
 
-
+    print("[SciBERT_Classifier_train] Training finished.")
 
 
 if __name__ == "__main__":

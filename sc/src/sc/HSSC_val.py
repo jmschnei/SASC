@@ -2,17 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-NO-FINETUNE evaluation script for the Hierarchical SciBERT classifier (HSSC),
-compatible with sc_scibert_train.sh-style arguments.
+Training script for Hierarchical SciBERT classifier (HSSC),
+compatible with generic sc_scibert_train.sh-style arguments.
 
 Main behavior:
   - Read a CSV file containing text, level-1 labels, and level-2 labels.
-  - Automatically build the label hierarchy from the level1 / level2 columns.
-  - Initialize a two-level HierarchicalSciBERT model using the pretrained SciBERT encoder.
-  - Perform hierarchical evaluation on a validation split (default: 20%)
-    WITHOUT performing any fine-tuning or gradient updates.
+  - Automatically build the label hierarchy from level1 / level2 columns.
+  - Train a two-level classifier using HSSC.HierarchicalSciBERT.
 
-Default column names (compatible with scilake_cancer_level2_hssc.csv):
+Default column names are adapted to scilake_cancer_level2_hssc.csv:
   - text column: section_content
   - level-1 label: hssc_level1
   - level-2 label: hssc_level2
@@ -658,37 +656,145 @@ def main():
     print(f"[HSSC_train] Initializing HierarchicalSciBERT with model_name={args.model_name}")
     model = HierarchicalSciBERT(hierarchy_config, model_name=args.model_name).to(device)
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # NO-FINETUNE MODE:
-    # Directly run hierarchical evaluation on the validation split
-    # (default: test_size=0.2) WITHOUT performing any training.
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    val_loss, val_acc_l1, val_acc_l2 = evaluate(
-        model,
-        val_loader,
-        device,
-        level1_to_idx,
-        level2_to_idx,
-        alpha_level2=args.alpha_level2,
-        fp16=args.fp16,
+    # =====================
+    # Freeze SciBERT encoder (NO fine-tuning)
+    # =====================
+    for p in model.bert.parameters():
+        p.requires_grad = False
+
+    print("[HSSC_train] SciBERT encoder frozen. Training hierarchical classifier heads only.")
+
+    # sanity check if it is frozen encoder
+    num_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    num_total = sum(p.numel() for p in model.parameters())
+
+    print(
+        f"[Debug] Trainable params: {num_trainable:,} / {num_total:,} "
+        f"({100.0 * num_trainable / num_total:.4f}%)"
     )
 
-    print("\n========== NO-FINETUNE EVAL (HIERARCHICAL) ==========")
-    print(
-        f"[Val] loss={val_loss:.4f}, "
-        f"acc_l1={val_acc_l1:.4f}, acc_l2={val_acc_l2:.4f}"
-    )
-    print("[HSSC_train] Done (no training).")
+    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate)
+
+    # wandb switch logic:
+    #   1) --use_wandb explicitly set, OR
+    #   2) 'wandb' appears in --report_to
+    use_wandb = args.use_wandb or (args.report_to and "wandb" in args.report_to)
+    if use_wandb and wandb is None:
+        print("[HSSC_train] wandb is not installed, disabling wandb logging.")
+        use_wandb = False
 
     if use_wandb:
-        wandb.log({
-            "eval/loss": val_loss,
-            "eval/acc_level1": val_acc_l1,
-            "eval/acc_level2": val_acc_l2,
-            "mode": "no_finetune"
-        })
+        project = args.wandb_project or os.environ.get("WANDB_PROJECT", "hssc")
+        tags_str = args.wandb_tags or os.environ.get("WANDB_TAGS", "")
+        tags = [t for t in tags_str.split(",") if t] if tags_str else None
+
+        print(
+            "[HSSC_train] Initializing wandb: "
+            f"project={project}, run_name={args.run_name}, tags={tags}"
+        )
+        wandb.init(
+            project=project,
+            name=args.run_name,
+            tags=tags,
+            config={
+                "model_name": args.model_name,
+                "tokenizer_name": tokenizer_name,
+                "max_length": args.max_length,
+                "batch_size": args.batch_size,
+                "epochs": args.epochs,
+                "learning_rate": args.learning_rate,
+                "alpha_level2": args.alpha_level2,
+            },
+        )
+
+    if args.compare_enhanced:
+        print(
+            "[HSSC_train] NOTE: --compare_enhanced flag is accepted but not implemented "
+            "(EnhancedHierarchicalClassifier is designed for inference-time comparison only)."
+        )
+
+    # Training loop
+    best_val_loss = float("inf")
+    for epoch in range(1, args.epochs + 1):
+        print(f"\n========== Epoch {epoch}/{args.epochs} ==========")
+
+        train_loss, train_acc_l1, train_acc_l2 = train_one_epoch(
+            model,
+            train_loader,
+            device,
+            level1_to_idx,
+            level2_to_idx,
+            alpha_level2=args.alpha_level2,
+            fp16=args.fp16,
+            optimizer=optimizer,
+        )
+
+        val_loss, val_acc_l1, val_acc_l2 = evaluate(
+            model,
+            val_loader,
+            device,
+            level1_to_idx,
+            level2_to_idx,
+            alpha_level2=args.alpha_level2,
+            fp16=args.fp16,
+        )
+
+        print(
+            f"[Train] loss={train_loss:.4f}, "
+            f"acc_l1={train_acc_l1:.4f}, acc_l2={train_acc_l2:.4f}"
+        )
+        print(
+            f"[Val]   loss={val_loss:.4f}, "
+            f"acc_l1={val_acc_l1:.4f}, acc_l2={val_acc_l2:.4f}"
+        )
+
+        if use_wandb:
+            wandb.log(
+                {
+                    "train/loss": train_loss,
+                    "train/acc_level1": train_acc_l1,
+                    "train/acc_level2": train_acc_l2,
+                    "val/loss": val_loss,
+                    "val/acc_level1": val_acc_l1,
+                    "val/acc_level2": val_acc_l2,
+                    "epoch": epoch,
+                }
+            )
+
+        # Simple "best checkpoint" saving based on validation loss
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            ckpt_path = os.path.join(args.output_dir, "best_model.pt")
+            print(f"[HSSC_train] Saving best model to {ckpt_path}")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "hierarchy_config": hierarchy_config,
+                    "level1_to_idx": level1_to_idx,
+                    "level2_to_idx": level2_to_idx,
+                    "args": vars(args),
+                },
+                ckpt_path,
+            )
+
+    # Save a final "last epoch" checkpoint
+    last_ckpt_path = os.path.join(args.output_dir, "last_model.pt")
+    print(f"[HSSC_train] Saving last model to {last_ckpt_path}")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "hierarchy_config": hierarchy_config,
+            "level1_to_idx": level1_to_idx,
+            "level2_to_idx": level2_to_idx,
+            "args": vars(args),
+        },
+        last_ckpt_path,
+    )
+
+    if use_wandb:
         wandb.finish()
 
+    print("[HSSC_train] Training finished.")
 
 
 if __name__ == "__main__":
