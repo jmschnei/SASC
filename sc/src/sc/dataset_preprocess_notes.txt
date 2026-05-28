@@ -1,0 +1,294 @@
+https://huggingface.co/datasets/SIRIS-Lab/scilake-fulltext-corpus/viewer/default/cancer?row=0&views%5B%5D=cancer
+
+'abstract': 0,
+'introduction': 1,
+'background': 2,
+'methods': 3,
+'results': 4,
+'discussion': 5,
+'conclusion': 6,
+'references': 7,
+'acknowledgments': 8,
+'supplementary': 9
+
+6K papers
+Maybe 2K is useful
+
+share google sheets:
+https://docs.google.com/spreadsheets/d/1uNnQyKEIy7kPZQ39s09fZvWNiaKAsfAcnJ1RFBuAcIQ/edit?gid=0#gid=0
+
+
+root@serv-9221:/ws/sc/src/sc# python prepare_scilake.py 
+/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py:111: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Checking existing CSV files in ./raw_csv ...
+⚠️  ./raw_csv/scilake_cancer.csv already exists, skip downloading split 'cancer'.
+⚠️  ./raw_csv/scilake_neuroscience.csv already exists, skip downloading split 'neuroscience'.
+⚠️  ./raw_csv/scilake_energy.csv already exists, skip downloading split 'energy'.
+⚠️  ./raw_csv/scilake_transport.csv already exists, skip downloading split 'transport'.
+⚠️  ./raw_csv/scilake_general.csv already exists, skip downloading split 'general'.
+
+📂 Loading ./raw_csv/scilake_cancer.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 980/1000
+   Docs after English filter          : 980
+   Docs with fulltext_sections    : 980
+   Total fulltext_sections        : 14152
+   Docs with fulltext_additional  : 932
+   Total fulltext_additional      : 6118
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=6118, after=3914
+🧱 Extracting sections with HSSC feature-based mapping...
+[prepare_scilake] Removed sections with BOTH hssc_level1 and hssc_level2 missing: 3634/12278 (kept 8644 sections).
+   Total sections (after filters): 8644
+   With hssc_level1 (non-empty level1 label) : 8644
+   With hssc_level2 (non-empty level2 label) : 8594
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   Docs with at least one non-empty level2: 945/947 (dropped 2 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            3276
+results            3197
+introduction       1044
+discussion          626
+conclusion          429
+acknowledgments      40
+appendix             18
+references           10
+abstract              4
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              3276
+tables_figures            2460
+background                1044
+descriptive_statistics     737
+interpretation             626
+summary                    429
+supplementary_data          18
+objective                    4
+Name: count, dtype: int64
+💾 Saved level2 dataset: ./preprocessed/scilake_cancer_level2_hssc.csv (8644 rows)
+
+📂 Loading ./raw_csv/scilake_neuroscience.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 985/1000
+   Docs after English filter          : 985
+   Docs with fulltext_sections    : 985
+   Total fulltext_sections        : 15155
+   Docs with fulltext_additional  : 947
+   Total fulltext_additional      : 5957
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=5957, after=3784
+🧱 Extracting sections with HSSC feature-based mapping...
+[prepare_scilake] Removed sections with BOTH hssc_level1 and hssc_level2 missing: 3462/13188 (kept 9726 sections).
+   Total sections (after filters): 9726
+   With hssc_level1 (non-empty level1 label) : 9726
+   With hssc_level2 (non-empty level2 label) : 9649
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   Docs with at least one non-empty level2: 972/972 (dropped 0 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            4186
+results            2892
+introduction       1313
+discussion          632
+conclusion          596
+acknowledgments      57
+appendix             20
+references           20
+abstract             10
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              4186
+tables_figures            1874
+background                1313
+descriptive_statistics    1018
+interpretation             632
+summary                    596
+supplementary_data          20
+objective                   10
+Name: count, dtype: int64
+💾 Saved level2 dataset: ./preprocessed/scilake_neuroscience_level2_hssc.csv (9726 rows)
+
+📂 Loading ./raw_csv/scilake_energy.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 985/1000
+   Docs after English filter          : 985
+   Docs with fulltext_sections    : 985
+   Total fulltext_sections        : 15155
+   Docs with fulltext_additional  : 947
+   Total fulltext_additional      : 5957
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=5957, after=3784
+🧱 Extracting sections with HSSC feature-based mapping...
+[prepare_scilake] Removed sections with BOTH hssc_level1 and hssc_level2 missing: 3462/13188 (kept 9726 sections).
+   Total sections (after filters): 9726
+   With hssc_level1 (non-empty level1 label) : 9726
+   With hssc_level2 (non-empty level2 label) : 9649
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   Docs with at least one non-empty level2: 972/972 (dropped 0 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            4186
+results            2892
+introduction       1313
+discussion          632
+conclusion          596
+acknowledgments      57
+appendix             20
+references           20
+abstract             10
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              4186
+tables_figures            1874
+background                1313
+descriptive_statistics    1018
+interpretation             632
+summary                    596
+supplementary_data          20
+objective                   10
+Name: count, dtype: int64
+💾 Saved level2 dataset: ./preprocessed/scilake_energy_level2_hssc.csv (9726 rows)
+
+📂 Loading ./raw_csv/scilake_transport.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 919/1000
+   Docs after English filter          : 919
+   Docs with fulltext_sections    : 919
+   Total fulltext_sections        : 17606
+   Docs with fulltext_additional  : 793
+   Total fulltext_additional      : 4107
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=4107, after=2717
+🧱 Extracting sections with HSSC feature-based mapping...
+[prepare_scilake] Removed sections with BOTH hssc_level1 and hssc_level2 missing: 5787/15555 (kept 9768 sections).
+   Total sections (after filters): 9768
+   With hssc_level1 (non-empty level1 label) : 9768
+   With hssc_level2 (non-empty level2 label) : 9640
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   Docs with at least one non-empty level2: 894/894 (dropped 0 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            3898
+results            2924
+introduction       1363
+conclusion          949
+discussion          485
+acknowledgments      93
+references           35
+appendix             18
+abstract              3
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              3898
+tables_figures            2139
+background                1363
+summary                    949
+descriptive_statistics     785
+interpretation             485
+supplementary_data          18
+objective                    3
+Name: count, dtype: int64
+💾 Saved level2 dataset: ./preprocessed/scilake_transport_level2_hssc.csv (9768 rows)
+
+📂 Loading ./raw_csv/scilake_general.csv
+🌐 Filtering non-English rows using langdetect (document-level)...
+✅ English rows: 1586/2000
+   Docs after English filter          : 1586
+   Docs with fulltext_sections    : 1586
+   Total fulltext_sections        : 24346
+   Docs with fulltext_additional  : 1396
+   Total fulltext_additional      : 7747
+🧹 Cleaning fulltext_additional (drop empty / keep non-empty duplicates)...
+   fulltext_additional sections: before=7747, after=5143
+🧱 Extracting sections with HSSC feature-based mapping...
+[prepare_scilake] Removed sections with BOTH hssc_level1 and hssc_level2 missing: 6874/21553 (kept 14679 sections).
+   Total sections (after filters): 14679
+   With hssc_level1 (non-empty level1 label) : 14679
+   With hssc_level2 (non-empty level2 label) : 14469
+   NOTE: Total sections is the number of rows AFTER applying flatten_sections() filters:
+         - section_content is non-empty
+         - 30 <= len(section_content) <= 8000
+         - content is normalized (whitespace) and must remain non-empty
+         Therefore Total sections is generally smaller than:
+           Total fulltext_sections + cleaned fulltext_additional.
+   Docs with at least one non-empty level2: 1562/1562 (dropped 0 docs with no level2 at all)
+   Unique hssc_level1 labels (non-empty): 9
+   Unique hssc_level2 labels (non-empty): 8
+   hssc_level1 label names:
+     abstract, acknowledgments, appendix, conclusion, discussion, introduction, methods, references, results
+   hssc_level2 label names (first 50, if many):
+     background, descriptive_statistics, interpretation, objective, study_design, summary, supplementary_data, tables_figures
+   hssc_level1 distribution (top 20):
+hssc_level1
+methods            6041
+results            3942
+introduction       2283
+conclusion         1128
+discussion          980
+acknowledgments     151
+appendix             72
+references           59
+abstract             23
+Name: count, dtype: int64
+   hssc_level2 distribution (top 20):
+hssc_level2
+study_design              6041
+tables_figures            2369
+background                2283
+descriptive_statistics    1573
+summary                   1128
+interpretation             980
+supplementary_data          72
+objective                   23
+Name: count, dtype: int64
+💾 Saved level2 dataset: ./preprocessed/scilake_general_level2_hssc.csv (14679 rows)

@@ -6,7 +6,7 @@ SASC using SciBERT
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModel, AdamW
+from transformers import AutoTokenizer, AutoModel
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 import numpy as np
@@ -53,7 +53,7 @@ class SciBERTSectionClassifier(nn.Module):
     
     def __init__(self, n_classes: int, model_name: str = 'allenai/scibert_scivocab_uncased'):
         super(SciBERTSectionClassifier, self).__init__()
-        self.bert = AutoModel.from_pretrained(model_name)
+        self.bert = AutoModel.from_pretrained(model_name, use_safetensors=True)
         self.dropout = nn.Dropout(0.3)
         self.classifier = nn.Linear(self.bert.config.hidden_size, n_classes)
         
@@ -86,7 +86,7 @@ class SectionClassificationSystem:
     
     def __init__(self, model_name: str = 'allenai/scibert_scivocab_uncased'):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
         self.model = None
         self.label_to_section = {v: k for k, v in self.SECTION_LABELS.items()}
         
@@ -125,7 +125,7 @@ class SectionClassificationSystem:
         self.model = SciBERTSectionClassifier(n_classes).to(self.device)
         
         # Configure optimizer and loss function
-        optimizer = AdamW(self.model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
         criterion = nn.CrossEntropyLoss()
         
         # Training history

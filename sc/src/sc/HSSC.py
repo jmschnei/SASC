@@ -41,7 +41,7 @@ class HierarchicalSciBERT(nn.Module):
         super(HierarchicalSciBERT, self).__init__()
         
         # Shared encoder
-        self.bert = AutoModel.from_pretrained(model_name)
+        self.bert = AutoModel.from_pretrained(model_name, use_safetensors=True)
         hidden_size = self.bert.config.hidden_size
         
         # Hierarchy configuration
@@ -113,7 +113,7 @@ class HierarchicalSectionClassifier:
     
     def __init__(self, model_name: str = 'allenai/scibert_scivocab_uncased'):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
         self.model = HierarchicalSciBERT(self.SECTION_HIERARCHY).to(self.device)
         
         # Index mappings

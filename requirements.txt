@@ -1,0 +1,10 @@
+file:///netscratch/xshuiai/projects/SASC/sc
+accelerate>=0.33
+datasets>=2.20
+evaluate>=0.4
+huggingface-hub>=0.23
+scikit-learn>=1.4,<2
+transformers>=4.41,<5
+tensorflow-datasets>=4.9.9
+transformers>=4.41,<5
+wandb>=0.21.3
